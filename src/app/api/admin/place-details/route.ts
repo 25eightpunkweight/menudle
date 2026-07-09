@@ -10,7 +10,7 @@ export async function GET(req: NextRequest) {
   const placeId = req.nextUrl.searchParams.get('place_id')
   if (!placeId) return NextResponse.json({ error: 'Missing place_id' }, { status: 400 })
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!
+  const apiKey = process.env.GOOGLE_MAPS_SERVER_API_KEY!
   const name = `places/${placeId}`
 
   const res = await fetch(

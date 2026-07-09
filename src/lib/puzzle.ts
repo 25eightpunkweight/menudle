@@ -64,7 +64,7 @@ export function parseAmbientClues(place: PlaceDetailsResult): AmbientClues {
 }
 
 export async function fetchPlaceAmbient(placeId: string): Promise<AmbientClues> {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!
+  const apiKey = process.env.GOOGLE_MAPS_SERVER_API_KEY!
   // places/ prefix required by Places API (New)
   const name = placeId.startsWith('places/') ? placeId : `places/${placeId}`
   const fields = 'rating,userRatingCount,priceLevel,addressComponents'
@@ -80,7 +80,7 @@ export async function fetchPlaceAmbient(placeId: string): Promise<AmbientClues> 
 }
 
 export async function fetchPlacePhotos(placeId: string): Promise<string[]> {
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!
+  const apiKey = process.env.GOOGLE_MAPS_SERVER_API_KEY!
   const name = placeId.startsWith('places/') ? placeId : `places/${placeId}`
 
   const res = await fetch(

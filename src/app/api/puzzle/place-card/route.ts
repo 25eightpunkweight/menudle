@@ -33,7 +33,7 @@ export async function GET() {
     return NextResponse.json({ error: 'Puzzle data missing' }, { status: 500 })
   }
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!
+  const apiKey = process.env.GOOGLE_MAPS_SERVER_API_KEY!
   const name = `places/${restaurant.place_id}`
 
   const res = await fetch(
