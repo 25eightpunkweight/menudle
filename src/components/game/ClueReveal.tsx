@@ -15,11 +15,10 @@ function PhotoFromRef({ photoRef, alt, mapsApiKey }: { photoRef: string; alt: st
   // Places API (New) photo URL
   const src = `https://places.googleapis.com/v1/${photoRef}/media?maxHeightPx=400&key=${mapsApiKey}`
   return (
-    <img
-      src={src}
-      alt={alt}
-      className="mx-auto max-h-64 w-full rounded-xl object-cover"
-    />
+    <div>
+      <img src={src} alt={alt} className="mx-auto max-h-64 w-full rounded-xl object-cover" />
+      <p className="mt-1 text-center text-xs text-zinc-400">via Google Maps</p>
+    </div>
   )
 }
 
