@@ -8,6 +8,8 @@ type MenuItemInput = {
   description: string
   price: number
   photo_reference: string
+  photo_url: string | null
+  photo_attribution: string | null
 }
 
 type Body = {
@@ -17,6 +19,8 @@ type Body = {
   establishment_type: string
   menu_items: MenuItemInput[]
   exterior_photo_ref: string | null
+  exterior_photo_url: string | null
+  exterior_photo_attribution: string | null
   puzzle_date: string | null
 }
 
@@ -38,11 +42,16 @@ export async function PATCH(req: NextRequest) {
   const id = req.nextUrl.searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
-  const { name, cuisine, establishment_type, menu_items, exterior_photo_ref } = await req.json()
+  const { name, cuisine, establishment_type, menu_items, exterior_photo_ref, exterior_photo_url, exterior_photo_attribution } = await req.json()
 
   const { data, error } = await getSupabaseAdmin()
     .from('restaurants')
-    .update({ name, cuisine, establishment_type, menu_items, exterior_photo_ref: exterior_photo_ref ?? null })
+    .update({
+      name, cuisine, establishment_type, menu_items,
+      exterior_photo_ref: exterior_photo_ref ?? null,
+      exterior_photo_url: exterior_photo_url ?? null,
+      exterior_photo_attribution: exterior_photo_attribution ?? null,
+    })
     .eq('id', id)
     .select()
     .single()
@@ -72,7 +81,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body: Body = await req.json()
-  const { place_id, name, cuisine, establishment_type, menu_items, exterior_photo_ref, puzzle_date } = body
+  const { place_id, name, cuisine, establishment_type, menu_items, exterior_photo_ref, exterior_photo_url, exterior_photo_attribution, puzzle_date } = body
 
   if (!place_id || !name || !cuisine || !establishment_type || !menu_items?.length) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -81,7 +90,13 @@ export async function POST(req: NextRequest) {
   const { data, error: insertError } = await getSupabaseAdmin()
     .from('restaurants')
     .upsert(
-      { place_id, name, cuisine, establishment_type, menu_items, exterior_photo_ref: exterior_photo_ref ?? null, approved: true },
+      {
+        place_id, name, cuisine, establishment_type, menu_items,
+        exterior_photo_ref: exterior_photo_ref ?? null,
+        exterior_photo_url: exterior_photo_url ?? null,
+        exterior_photo_attribution: exterior_photo_attribution ?? null,
+        approved: true,
+      },
       { onConflict: 'place_id' }
     )
     .select('id')

@@ -1,6 +1,7 @@
 'use client'
 
 import type { MenuItem } from '@/lib/database.types'
+import { placePhotoUrl } from '@/lib/photos'
 
 type Props = {
   guessCount: number // number of wrong guesses made so far
@@ -8,16 +9,28 @@ type Props = {
   establishmentType: string
   cuisine: string
   exteriorPhotoRef: string | null
+  exteriorPhotoUrl: string | null
+  exteriorPhotoAttribution: string | null
   mapsApiKey: string
 }
 
-function PhotoFromRef({ photoRef, alt, mapsApiKey }: { photoRef: string; alt: string; mapsApiKey: string }) {
-  // Places API (New) photo URL
-  const src = `https://places.googleapis.com/v1/${photoRef}/media?maxHeightPx=400&key=${mapsApiKey}`
+function Photo({ photoRef, url, attribution, alt, mapsApiKey }: {
+  photoRef: string
+  url: string | null
+  attribution: string | null
+  alt: string
+  mapsApiKey: string
+}) {
+  const src = url ?? placePhotoUrl(photoRef, mapsApiKey)
+  const caption = url ? `Photo: ${attribution || 'external source'}` : 'Photo via Google'
   return (
     <div>
-      <img src={src} alt={alt} className="mx-auto max-h-64 w-full rounded-xl object-cover" />
-      <p className="mt-1 text-center text-xs text-zinc-400">via Google Maps</p>
+      <img
+        src={src}
+        alt={alt}
+        className="mx-auto max-h-64 w-full rounded-xl object-cover"
+      />
+      <p className="mt-1 text-center text-[10px] text-zinc-400">{caption}</p>
     </div>
   )
 }
@@ -26,7 +39,13 @@ function MenuItem({ item, showPhoto, mapsApiKey }: { item: MenuItem; showPhoto: 
   return (
     <div className="space-y-2">
       {showPhoto && (
-        <PhotoFromRef photoRef={item.photo_reference} alt={item.name} mapsApiKey={mapsApiKey} />
+        <Photo
+          photoRef={item.photo_reference}
+          url={item.photo_url}
+          attribution={item.photo_attribution}
+          alt={item.name}
+          mapsApiKey={mapsApiKey}
+        />
       )}
       <div className="text-center">
         <p className="font-semibold">{item.name}</p>
@@ -43,6 +62,8 @@ export default function ClueReveal({
   establishmentType,
   cuisine,
   exteriorPhotoRef,
+  exteriorPhotoUrl,
+  exteriorPhotoAttribution,
   mapsApiKey,
 }: Props) {
   const item1 = menuItems[0]
@@ -71,7 +92,13 @@ export default function ClueReveal({
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
             {guessCount >= 3 ? 'Clue 2 · Menu Picture #1 + Description' : 'Clue 2 · Menu Picture #1'}
           </p>
-          <PhotoFromRef photoRef={item1.photo_reference} alt="Mystery dish" mapsApiKey={mapsApiKey} />
+          <Photo
+            photoRef={item1.photo_reference}
+            url={item1.photo_url}
+            attribution={item1.photo_attribution}
+            alt="Mystery dish"
+            mapsApiKey={mapsApiKey}
+          />
           {guessCount >= 3 && (
             <div className="mt-2 text-center">
               <p className="font-semibold">{item1.name}</p>
@@ -94,7 +121,13 @@ export default function ClueReveal({
       {guessCount >= 5 && exteriorPhotoRef && (
         <div className="border-t border-zinc-200 pt-4">
           <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">Clue 5 · Exterior</p>
-          <PhotoFromRef photoRef={exteriorPhotoRef} alt="Restaurant exterior" mapsApiKey={mapsApiKey} />
+          <Photo
+            photoRef={exteriorPhotoRef}
+            url={exteriorPhotoUrl}
+            attribution={exteriorPhotoAttribution}
+            alt="Restaurant exterior"
+            mapsApiKey={mapsApiKey}
+          />
         </div>
       )}
     </div>

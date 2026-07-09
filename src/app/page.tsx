@@ -21,6 +21,8 @@ type PuzzleData = {
   establishment_type: string
   menu_items: MenuItem[]
   exterior_photo_ref: string | null
+  exterior_photo_url: string | null
+  exterior_photo_attribution: string | null
 }
 
 type Guess = { name: string; correct: boolean; skipped?: boolean }
@@ -164,7 +166,7 @@ export default function Home() {
       <main className="mx-auto w-full flex min-h-screen max-w-lg flex-col gap-4 px-4 py-8">
         <header className="text-center">
           <h1 className="text-2xl font-bold tracking-tight">Menudle</h1>
-          <p className="text-xs text-zinc-400">Guess today&apos;s restaurant</p>
+          <p className="text-xs text-zinc-400">Guess today&apos;s restaurant, Metro Manila only!</p>
         </header>
 
         <AmbientClues clues={puzzle.ambient} />
@@ -177,6 +179,8 @@ export default function Home() {
               establishmentType={puzzle.establishment_type}
               cuisine={puzzle.cuisine}
               exteriorPhotoRef={puzzle.exterior_photo_ref}
+              exteriorPhotoUrl={puzzle.exterior_photo_url}
+              exteriorPhotoAttribution={puzzle.exterior_photo_attribution}
               mapsApiKey={MAPS_API_KEY}
             />
 

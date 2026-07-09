@@ -8,6 +8,8 @@ create table public.restaurants (
   establishment_type text not null,
   menu_items         jsonb not null default '[]',
   exterior_photo_ref text,
+  exterior_photo_url text,
+  exterior_photo_attribution text,
   approved           boolean not null default false,
   created_at         timestamptz not null default now()
 );

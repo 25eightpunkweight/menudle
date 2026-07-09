@@ -4,6 +4,8 @@ export type MenuItem = {
   description: string
   price: number
   photo_reference: string
+  photo_url: string | null
+  photo_attribution: string | null
 }
 
 export type Restaurant = {
@@ -14,6 +16,8 @@ export type Restaurant = {
   establishment_type: string
   menu_items: MenuItem[]
   exterior_photo_ref: string | null
+  exterior_photo_url: string | null
+  exterior_photo_attribution: string | null
   approved: boolean
   created_at: string
 }

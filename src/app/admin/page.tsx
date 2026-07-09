@@ -9,6 +9,11 @@ const MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!
 
 type PhotoOption = { name: string; url: string }
 
+type PhotoSelection = {
+  photo_reference: string
+  photo_url: string | null
+  photo_attribution: string | null
+}
 
 type AmbientClues = {
   rating: number
@@ -43,6 +48,8 @@ type MenuItemFull = {
   description: string
   price: number
   photo_reference: string
+  photo_url: string | null
+  photo_attribution: string | null
 }
 
 type RestaurantFull = {
@@ -53,6 +60,8 @@ type RestaurantFull = {
   establishment_type: string
   menu_items: MenuItemFull[]
   exterior_photo_ref: string | null
+  exterior_photo_url: string | null
+  exterior_photo_attribution: string | null
   approved: boolean
   created_at: string
 }
@@ -78,12 +87,15 @@ function recalcDates(items: QueueEntry[]): QueueEntry[] {
 
 // ── PhotoPicker ────────────────────────────────────────────────────────────────
 
-function PhotoPicker({ photos, selected, onSelect, label }: {
+function PhotoPicker({ photos, selection, onChange, label }: {
   photos: PhotoOption[]
-  selected: string
-  onSelect: (ref: string) => void
+  selection: PhotoSelection
+  onChange: (next: PhotoSelection) => void
   label: string
 }) {
+  const usingManual = Boolean(selection.photo_url)
+  const [manualOpen, setManualOpen] = useState(usingManual)
+
   return (
     <div>
       <p className="mb-1 text-xs font-medium text-zinc-500">{label}</p>
@@ -92,9 +104,9 @@ function PhotoPicker({ photos, selected, onSelect, label }: {
           <button
             key={p.name}
             type="button"
-            onClick={() => onSelect(p.name)}
+            onClick={() => onChange({ photo_reference: p.name, photo_url: null, photo_attribution: null })}
             className={`shrink-0 overflow-hidden rounded-lg border-2 transition-all ${
-              selected === p.name
+              !usingManual && selection.photo_reference === p.name
                 ? 'border-zinc-900'
                 : 'border-transparent opacity-60 hover:opacity-100'
             }`}
@@ -103,6 +115,29 @@ function PhotoPicker({ photos, selected, onSelect, label }: {
           </button>
         ))}
       </div>
+      <button
+        type="button"
+        onClick={() => setManualOpen((v) => !v)}
+        className="text-xs text-zinc-400 underline hover:text-zinc-600"
+      >
+        {manualOpen ? 'Hide custom URL' : 'Use a custom URL instead'}
+      </button>
+      {manualOpen && (
+        <div className="mt-2 space-y-1.5">
+          <input
+            value={selection.photo_url ?? ''}
+            onChange={(e) => onChange({ ...selection, photo_url: e.target.value || null })}
+            placeholder="Image URL"
+            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500"
+          />
+          <input
+            value={selection.photo_attribution ?? ''}
+            onChange={(e) => onChange({ ...selection, photo_attribution: e.target.value || null })}
+            placeholder="Attribution (e.g. Yelp, Zomato, restaurant's website — optional)"
+            className="w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500"
+          />
+        </div>
+      )}
     </div>
   )
 }
@@ -409,7 +444,15 @@ function QueueManager({ password }: { password: string }) {
 
 // ── RestaurantsCRUDTab ─────────────────────────────────────────────────────────
 
-type MenuItemDraft = { rank: number; name: string; description: string; price: string; photo_reference: string }
+type MenuItemDraft = {
+  rank: number
+  name: string
+  description: string
+  price: string
+  photo_reference: string
+  photo_url: string | null
+  photo_attribution: string | null
+}
 
 function RestaurantRow({ restaurant, password, onDeleted, onUpdated }: {
   restaurant: RestaurantFull
@@ -425,7 +468,9 @@ function RestaurantRow({ restaurant, password, onDeleted, onUpdated }: {
   const [items, setItems] = useState<MenuItemDraft[]>(
     restaurant.menu_items.map(m => ({ ...m, price: String(m.price) }))
   )
-  const [exteriorPhoto, setExteriorPhoto] = useState(restaurant.exterior_photo_ref ?? '')
+  const [exteriorPhotoRef, setExteriorPhotoRef] = useState(restaurant.exterior_photo_ref ?? '')
+  const [exteriorPhotoUrl, setExteriorPhotoUrl] = useState(restaurant.exterior_photo_url)
+  const [exteriorPhotoAttribution, setExteriorPhotoAttribution] = useState(restaurant.exterior_photo_attribution)
   const [editPhotos, setEditPhotos] = useState<PhotoOption[]>([])
   const [editAmbientClues, setEditAmbientClues] = useState<AmbientClues | null>(null)
   const [saving, setSaving] = useState(false)
@@ -457,11 +502,17 @@ function RestaurantRow({ restaurant, password, onDeleted, onUpdated }: {
     setCuisine(restaurant.cuisine)
     setEstType(restaurant.establishment_type)
     setItems(restaurant.menu_items.map(m => ({ ...m, price: String(m.price) })))
-    setExteriorPhoto(restaurant.exterior_photo_ref ?? '')
+    setExteriorPhotoRef(restaurant.exterior_photo_ref ?? '')
+    setExteriorPhotoUrl(restaurant.exterior_photo_url)
+    setExteriorPhotoAttribution(restaurant.exterior_photo_attribution)
   }
 
   function updateItem(rank: number, field: keyof MenuItemDraft, value: string) {
     setItems(prev => prev.map(m => m.rank === rank ? { ...m, [field]: value } : m))
+  }
+
+  function updateItemPhoto(rank: number, selection: PhotoSelection) {
+    setItems(prev => prev.map(m => m.rank === rank ? { ...m, ...selection } : m))
   }
 
   async function save() {
@@ -472,7 +523,9 @@ function RestaurantRow({ restaurant, password, onDeleted, onUpdated }: {
       body: JSON.stringify({
         name, cuisine, establishment_type: estType,
         menu_items: items.map(m => ({ ...m, price: Number(m.price) })),
-        exterior_photo_ref: exteriorPhoto || null,
+        exterior_photo_ref: exteriorPhotoRef || null,
+        exterior_photo_url: exteriorPhotoUrl,
+        exterior_photo_attribution: exteriorPhotoAttribution,
       }),
     })
     setSaving(false)
@@ -564,16 +617,15 @@ function RestaurantRow({ restaurant, password, onDeleted, onUpdated }: {
 
           {items.map(item => (
             <div key={item.rank} className="space-y-2 rounded-lg border border-zinc-200 bg-white p-3">
-              <div className="flex items-center gap-3">
-                {item.photo_reference && (
-                  <img
-                    src={`https://places.googleapis.com/v1/${item.photo_reference}/media?maxHeightPx=80&key=${MAPS_API_KEY}`}
-                    alt=""
-                    className="h-14 w-14 shrink-0 rounded-md object-cover"
-                  />
-                )}
-                <p className="text-xs font-semibold text-zinc-500">Menu item #{item.rank}</p>
-              </div>
+              <p className="text-xs font-semibold text-zinc-500">Menu item #{item.rank}</p>
+              {editPhotos.length > 0 && (
+                <PhotoPicker
+                  photos={editPhotos}
+                  selection={{ photo_reference: item.photo_reference, photo_url: item.photo_url, photo_attribution: item.photo_attribution }}
+                  onChange={(s) => updateItemPhoto(item.rank, s)}
+                  label="Select dish photo"
+                />
+              )}
               <div className="grid grid-cols-3 gap-2">
                 <div className="col-span-2">
                   <label className="text-xs font-medium text-zinc-500">Dish name</label>
@@ -620,8 +672,8 @@ function RestaurantRow({ restaurant, password, onDeleted, onUpdated }: {
             ) : (
               <PhotoPicker
                 photos={editPhotos}
-                selected={exteriorPhoto}
-                onSelect={setExteriorPhoto}
+                selection={{ photo_reference: exteriorPhotoRef, photo_url: exteriorPhotoUrl, photo_attribution: exteriorPhotoAttribution }}
+                onChange={(s) => { setExteriorPhotoRef(s.photo_reference); setExteriorPhotoUrl(s.photo_url); setExteriorPhotoAttribution(s.photo_attribution) }}
                 label="Select exterior photo (shown as clue 5)"
               />
             )}
@@ -649,10 +701,12 @@ function RestaurantsCRUDTab({ password }: { password: string }) {
   const [cuisine, setCuisine] = useState('')
   const [estType, setEstType] = useState('')
   const [draftItems, setDraftItems] = useState<MenuItemDraft[]>([
-    { rank: 1, name: '', description: '', price: '', photo_reference: '' },
-    { rank: 2, name: '', description: '', price: '', photo_reference: '' },
+    { rank: 1, name: '', description: '', price: '', photo_reference: '', photo_url: null, photo_attribution: null },
+    { rank: 2, name: '', description: '', price: '', photo_reference: '', photo_url: null, photo_attribution: null },
   ])
   const [exteriorPhotoRef, setExteriorPhotoRef] = useState('')
+  const [exteriorPhotoUrl, setExteriorPhotoUrl] = useState<string | null>(null)
+  const [exteriorPhotoAttribution, setExteriorPhotoAttribution] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   // List state
@@ -667,6 +721,10 @@ function RestaurantsCRUDTab({ password }: { password: string }) {
 
   function updateDraftItem(rank: number, field: keyof MenuItemDraft, value: string) {
     setDraftItems(prev => prev.map(it => it.rank === rank ? { ...it, [field]: value } : it))
+  }
+
+  function updateDraftItemPhoto(rank: number, selection: PhotoSelection) {
+    setDraftItems(prev => prev.map(it => it.rank === rank ? { ...it, ...selection } : it))
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -685,6 +743,8 @@ function RestaurantsCRUDTab({ password }: { password: string }) {
         establishment_type: estType,
         menu_items: menuItems,
         exterior_photo_ref: exteriorPhotoRef || null,
+        exterior_photo_url: exteriorPhotoUrl,
+        exterior_photo_attribution: exteriorPhotoAttribution,
         puzzle_date: null,
       }),
     })
@@ -700,6 +760,8 @@ function RestaurantsCRUDTab({ password }: { password: string }) {
         establishment_type: estType,
         menu_items: menuItems,
         exterior_photo_ref: exteriorPhotoRef || null,
+        exterior_photo_url: exteriorPhotoUrl,
+        exterior_photo_attribution: exteriorPhotoAttribution,
         approved: true,
         created_at: new Date().toISOString(),
       }
@@ -708,10 +770,12 @@ function RestaurantsCRUDTab({ password }: { password: string }) {
       setCuisine('')
       setEstType('')
       setDraftItems([
-        { rank: 1, name: '', description: '', price: '', photo_reference: '' },
-        { rank: 2, name: '', description: '', price: '', photo_reference: '' },
+        { rank: 1, name: '', description: '', price: '', photo_reference: '', photo_url: null, photo_attribution: null },
+        { rank: 2, name: '', description: '', price: '', photo_reference: '', photo_url: null, photo_attribution: null },
       ])
       setExteriorPhotoRef('')
+      setExteriorPhotoUrl(null)
+      setExteriorPhotoAttribution(null)
     } else {
       const err = await res.json()
       alert(`Error: ${err.error}`)
@@ -759,8 +823,8 @@ function RestaurantsCRUDTab({ password }: { password: string }) {
                 <p className="text-sm font-semibold">Menu item #{item.rank}</p>
                 <PhotoPicker
                   photos={preview.photos}
-                  selected={item.photo_reference}
-                  onSelect={ref => updateDraftItem(item.rank, 'photo_reference', ref)}
+                  selection={{ photo_reference: item.photo_reference, photo_url: item.photo_url, photo_attribution: item.photo_attribution }}
+                  onChange={(s) => updateDraftItemPhoto(item.rank, s)}
                   label="Select dish photo"
                 />
                 <div className="grid grid-cols-2 gap-3">
@@ -800,8 +864,8 @@ function RestaurantsCRUDTab({ password }: { password: string }) {
               <p className="mb-3 text-sm font-semibold">Exterior / signage photo</p>
               <PhotoPicker
                 photos={preview.photos}
-                selected={exteriorPhotoRef}
-                onSelect={setExteriorPhotoRef}
+                selection={{ photo_reference: exteriorPhotoRef, photo_url: exteriorPhotoUrl, photo_attribution: exteriorPhotoAttribution }}
+                onChange={(s) => { setExteriorPhotoRef(s.photo_reference); setExteriorPhotoUrl(s.photo_url); setExteriorPhotoAttribution(s.photo_attribution) }}
                 label="Select exterior photo (shown as clue 5)"
               />
             </div>

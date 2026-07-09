@@ -11,6 +11,8 @@ type QueueRow = {
     establishment_type: string
     menu_items: MenuItem[]
     exterior_photo_ref: string | null
+    exterior_photo_url: string | null
+    exterior_photo_attribution: string | null
   } | null
 }
 
@@ -19,7 +21,7 @@ export async function GET() {
 
   const { data, error } = await getSupabaseAdmin()
     .from('puzzle_queue')
-    .select('restaurant_id, restaurants(place_id, cuisine, establishment_type, menu_items, exterior_photo_ref)')
+    .select('restaurant_id, restaurants(place_id, cuisine, establishment_type, menu_items, exterior_photo_ref, exterior_photo_url, exterior_photo_attribution)')
     .eq('puzzle_date', today)
     .single()
 
@@ -48,5 +50,7 @@ export async function GET() {
     establishment_type: restaurant.establishment_type,
     menu_items: restaurant.menu_items,
     exterior_photo_ref,
+    exterior_photo_url: restaurant.exterior_photo_url,
+    exterior_photo_attribution: restaurant.exterior_photo_attribution,
   })
 }
