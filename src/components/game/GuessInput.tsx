@@ -25,6 +25,8 @@ export default function GuessInput({ onGuess, disabled }: Props) {
 
     const element = new google.maps.places.PlaceAutocompleteElement({
       includedPrimaryTypes: ['establishment'],
+      includedRegionCodes: ['PH'],
+      requestedRegion: 'ph',
       locationRestriction: {
         south: METRO_MANILA_BOUNDS.south,
         west: METRO_MANILA_BOUNDS.west,
@@ -43,14 +45,24 @@ export default function GuessInput({ onGuess, disabled }: Props) {
           toPlace: () => {
             id?: string | null
             displayName?: string | null
+            location?: { lat: () => number; lng: () => number } | null
             fetchFields: (opts: { fields: string[] }) => Promise<void>
           }
         }
       }
       if (!placePrediction) return
       const place = placePrediction.toPlace()
-      await place.fetchFields({ fields: ['id', 'displayName'] })
-      if (place.id && place.displayName) {
+      await place.fetchFields({ fields: ['id', 'displayName', 'location'] })
+      const lat = place.location?.lat()
+      const lng = place.location?.lng()
+      const inMetroManila =
+        lat != null &&
+        lng != null &&
+        lat >= METRO_MANILA_BOUNDS.south &&
+        lat <= METRO_MANILA_BOUNDS.north &&
+        lng >= METRO_MANILA_BOUNDS.west &&
+        lng <= METRO_MANILA_BOUNDS.east
+      if (place.id && place.displayName && inMetroManila) {
         onGuess(place.id, place.displayName)
         element.value = ''
       }

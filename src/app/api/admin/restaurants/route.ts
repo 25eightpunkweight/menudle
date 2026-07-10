@@ -6,10 +6,12 @@ type MenuItemInput = {
   rank: number
   name: string
   description: string
-  price: number
+  price: string
+  price_currency_prefix: boolean
   photo_reference: string
   photo_url: string | null
   photo_attribution: string | null
+  photo_date: string | null
 }
 
 type Body = {
@@ -17,10 +19,12 @@ type Body = {
   name: string
   cuisine: string
   establishment_type: string
+  price_level: string
   menu_items: MenuItemInput[]
   exterior_photo_ref: string | null
   exterior_photo_url: string | null
   exterior_photo_attribution: string | null
+  exterior_photo_date: string | null
   puzzle_date: string | null
 }
 
@@ -42,15 +46,16 @@ export async function PATCH(req: NextRequest) {
   const id = req.nextUrl.searchParams.get('id')
   if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
-  const { name, cuisine, establishment_type, menu_items, exterior_photo_ref, exterior_photo_url, exterior_photo_attribution } = await req.json()
+  const { name, cuisine, establishment_type, price_level, menu_items, exterior_photo_ref, exterior_photo_url, exterior_photo_attribution, exterior_photo_date } = await req.json()
 
   const { data, error } = await getSupabaseAdmin()
     .from('restaurants')
     .update({
-      name, cuisine, establishment_type, menu_items,
+      name, cuisine, establishment_type, price_level, menu_items,
       exterior_photo_ref: exterior_photo_ref ?? null,
       exterior_photo_url: exterior_photo_url ?? null,
       exterior_photo_attribution: exterior_photo_attribution ?? null,
+      exterior_photo_date: exterior_photo_date ?? null,
     })
     .eq('id', id)
     .select()
@@ -81,7 +86,7 @@ export async function POST(req: NextRequest) {
   }
 
   const body: Body = await req.json()
-  const { place_id, name, cuisine, establishment_type, menu_items, exterior_photo_ref, exterior_photo_url, exterior_photo_attribution, puzzle_date } = body
+  const { place_id, name, cuisine, establishment_type, price_level, menu_items, exterior_photo_ref, exterior_photo_url, exterior_photo_attribution, exterior_photo_date, puzzle_date } = body
 
   if (!place_id || !name || !cuisine || !establishment_type || !menu_items?.length) {
     return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -91,10 +96,11 @@ export async function POST(req: NextRequest) {
     .from('restaurants')
     .upsert(
       {
-        place_id, name, cuisine, establishment_type, menu_items,
+        place_id, name, cuisine, establishment_type, price_level, menu_items,
         exterior_photo_ref: exterior_photo_ref ?? null,
         exterior_photo_url: exterior_photo_url ?? null,
         exterior_photo_attribution: exterior_photo_attribution ?? null,
+        exterior_photo_date: exterior_photo_date ?? null,
         approved: true,
       },
       { onConflict: 'place_id' }

@@ -1,17 +1,9 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase'
-import { getPHTDateString } from '@/lib/puzzle'
+import { getPHTDateString, PRICE_SYMBOL_LABELS } from '@/lib/puzzle'
 
 type QueueRow = {
-  restaurants: { place_id: string } | null
-}
-
-const PRICE_LABELS: Record<string, string> = {
-  PRICE_LEVEL_FREE: 'Free',
-  PRICE_LEVEL_INEXPENSIVE: '₱ · Under ₱300/person',
-  PRICE_LEVEL_MODERATE: '₱₱ · ₱300–800/person',
-  PRICE_LEVEL_EXPENSIVE: '₱₱₱ · ₱800–2,000/person',
-  PRICE_LEVEL_VERY_EXPENSIVE: '₱₱₱₱ · ₱2,000+/person',
+  restaurants: { place_id: string; price_level: string } | null
 }
 
 export async function GET() {
@@ -19,7 +11,7 @@ export async function GET() {
 
   const { data, error } = await getSupabaseAdmin()
     .from('puzzle_queue')
-    .select('restaurants(place_id)')
+    .select('restaurants(place_id, price_level)')
     .eq('puzzle_date', today)
     .single()
 
@@ -69,7 +61,7 @@ export async function GET() {
     name: place.displayName?.text ?? '',
     address: place.formattedAddress ?? '',
     rating: place.rating ?? null,
-    price_level: PRICE_LABELS[place.priceLevel ?? ''] ?? null,
+    price_level: PRICE_SYMBOL_LABELS[restaurant.price_level] ?? null,
     photo_url: photoUrl,
     maps_url: place.googleMapsUri ?? null,
     website: place.websiteUri ?? null,

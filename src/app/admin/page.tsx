@@ -5,6 +5,19 @@ import { APIProvider, useMapsLibrary } from '@vis.gl/react-google-maps'
 
 const MAPS_API_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY!
 
+const ESTABLISHMENT_TYPES = [
+  'Fast Food',
+  'Fast Casual',
+  'Casual Dining',
+  'Upscale Casual',
+  'Fine Dining',
+  'Cafe',
+  'Bakery',
+  'Buffet',
+  'Eat-All-You-Can',
+  'Diner',
+]
+
 // ── Types ──────────────────────────────────────────────────────────────────────
 
 type PhotoOption = { name: string; url: string }
@@ -46,10 +59,12 @@ type MenuItemFull = {
   rank: number
   name: string
   description: string
-  price: number
+  price: string
+  price_currency_prefix: boolean
   photo_reference: string
   photo_url: string | null
   photo_attribution: string | null
+  photo_date: string | null
 }
 
 type RestaurantFull = {
@@ -58,10 +73,12 @@ type RestaurantFull = {
   name: string
   cuisine: string
   establishment_type: string
+  price_level: string
   menu_items: MenuItemFull[]
   exterior_photo_ref: string | null
   exterior_photo_url: string | null
   exterior_photo_attribution: string | null
+  exterior_photo_date: string | null
   approved: boolean
   created_at: string
 }
@@ -142,6 +159,77 @@ function PhotoPicker({ photos, selection, onChange, label }: {
   )
 }
 
+// ── MonthYearPicker ────────────────────────────────────────────────────────────
+
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+const CURRENT_YEAR = new Date().getFullYear()
+const YEARS = Array.from({ length: CURRENT_YEAR - 2009 }, (_, i) => CURRENT_YEAR - i)
+
+function MonthYearPicker({ value, onChange }: {
+  value: string | null
+  onChange: (v: string | null) => void
+}) {
+  const [selMonth, setSelMonth] = useState(() => value ? value.split('-')[1] : '')
+  const [selYear, setSelYear] = useState(() => value ? value.split('-')[0] : '')
+
+  // Re-sync if parent resets value (e.g. form cancel)
+  useEffect(() => {
+    setSelMonth(value ? value.split('-')[1] : '')
+    setSelYear(value ? value.split('-')[0] : '')
+  }, [value])
+
+  function handleMonth(month: string) {
+    setSelMonth(month)
+    if (selYear && month) onChange(`${selYear}-${month}`)
+    else if (!month && !selYear) onChange(null)
+  }
+
+  function handleYear(year: string) {
+    setSelYear(year)
+    if (year && selMonth) onChange(`${year}-${selMonth}`)
+    else if (!year && !selMonth) onChange(null)
+  }
+
+  function clear() {
+    setSelMonth('')
+    setSelYear('')
+    onChange(null)
+  }
+
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <p className="text-xs font-medium text-zinc-500 shrink-0">As of</p>
+      <select
+        value={selMonth}
+        onChange={e => handleMonth(e.target.value)}
+        className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-zinc-500"
+      >
+        <option value="">Month</option>
+        {MONTHS.map((m, i) => (
+          <option key={m} value={String(i + 1).padStart(2, '0')}>{m}</option>
+        ))}
+      </select>
+      <select
+        value={selYear}
+        onChange={e => handleYear(e.target.value)}
+        className="rounded-lg border border-zinc-300 bg-white px-2 py-1.5 text-xs outline-none focus:border-zinc-500"
+      >
+        <option value="">Year</option>
+        {YEARS.map(y => <option key={y} value={String(y)}>{y}</option>)}
+      </select>
+      {(selMonth || selYear) && (
+        <button
+          type="button"
+          onClick={clear}
+          className="text-xs text-zinc-400 hover:text-zinc-600"
+        >
+          Clear
+        </button>
+      )}
+    </div>
+  )
+}
+
 // ── AmbientCluesPreview ────────────────────────────────────────────────────────
 
 function AmbientCluesPreview({ clues }: { clues: AmbientClues }) {
@@ -171,6 +259,14 @@ function PlaceLookup({ onFound, password }: {
 
     const element = new google.maps.places.PlaceAutocompleteElement({
       includedPrimaryTypes: ['establishment'],
+      includedRegionCodes: ['PH'],
+      requestedRegion: 'ph',
+      locationRestriction: {
+        south: 14.3167,
+        west: 120.9333,
+        north: 14.7667,
+        east: 121.1333,
+      },
     })
     element.setAttribute('placeholder', 'Start typing a restaurant name…')
     containerRef.current.appendChild(element)
@@ -449,9 +545,11 @@ type MenuItemDraft = {
   name: string
   description: string
   price: string
+  price_currency_prefix: boolean
   photo_reference: string
   photo_url: string | null
   photo_attribution: string | null
+  photo_date: string | null
 }
 
 function RestaurantRow({ restaurant, password, onDeleted, onUpdated }: {
@@ -465,12 +563,12 @@ function RestaurantRow({ restaurant, password, onDeleted, onUpdated }: {
   const [name, setName] = useState(restaurant.name)
   const [cuisine, setCuisine] = useState(restaurant.cuisine)
   const [estType, setEstType] = useState(restaurant.establishment_type)
-  const [items, setItems] = useState<MenuItemDraft[]>(
-    restaurant.menu_items.map(m => ({ ...m, price: String(m.price) }))
-  )
+  const [priceLevel, setPriceLevel] = useState(restaurant.price_level ?? '₱₱')
+  const [items, setItems] = useState<MenuItemDraft[]>(restaurant.menu_items)
   const [exteriorPhotoRef, setExteriorPhotoRef] = useState(restaurant.exterior_photo_ref ?? '')
   const [exteriorPhotoUrl, setExteriorPhotoUrl] = useState(restaurant.exterior_photo_url)
   const [exteriorPhotoAttribution, setExteriorPhotoAttribution] = useState(restaurant.exterior_photo_attribution)
+  const [exteriorPhotoDate, setExteriorPhotoDate] = useState<string | null>(restaurant.exterior_photo_date ?? null)
   const [editPhotos, setEditPhotos] = useState<PhotoOption[]>([])
   const [editAmbientClues, setEditAmbientClues] = useState<AmbientClues | null>(null)
   const [saving, setSaving] = useState(false)
@@ -501,10 +599,12 @@ function RestaurantRow({ restaurant, password, onDeleted, onUpdated }: {
     setName(restaurant.name)
     setCuisine(restaurant.cuisine)
     setEstType(restaurant.establishment_type)
-    setItems(restaurant.menu_items.map(m => ({ ...m, price: String(m.price) })))
+    setPriceLevel(restaurant.price_level ?? '₱₱')
+    setItems(restaurant.menu_items)
     setExteriorPhotoRef(restaurant.exterior_photo_ref ?? '')
     setExteriorPhotoUrl(restaurant.exterior_photo_url)
     setExteriorPhotoAttribution(restaurant.exterior_photo_attribution)
+    setExteriorPhotoDate(restaurant.exterior_photo_date ?? null)
   }
 
   function updateItem(rank: number, field: keyof MenuItemDraft, value: string) {
@@ -515,17 +615,22 @@ function RestaurantRow({ restaurant, password, onDeleted, onUpdated }: {
     setItems(prev => prev.map(m => m.rank === rank ? { ...m, ...selection } : m))
   }
 
+  function updateItemPrefix(rank: number, value: boolean) {
+    setItems(prev => prev.map(m => m.rank === rank ? { ...m, price_currency_prefix: value } : m))
+  }
+
   async function save() {
     setSaving(true)
     const res = await fetch(`/api/admin/restaurants?id=${restaurant.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json', 'x-admin-secret': password },
       body: JSON.stringify({
-        name, cuisine, establishment_type: estType,
-        menu_items: items.map(m => ({ ...m, price: Number(m.price) })),
+        name, cuisine, establishment_type: estType, price_level: priceLevel,
+        menu_items: items,
         exterior_photo_ref: exteriorPhotoRef || null,
         exterior_photo_url: exteriorPhotoUrl,
         exterior_photo_attribution: exteriorPhotoAttribution,
+        exterior_photo_date: exteriorPhotoDate,
       }),
     })
     setSaving(false)
@@ -597,7 +702,7 @@ function RestaurantRow({ restaurant, password, onDeleted, onUpdated }: {
 
       {editing && (
         <div className="space-y-4 border-t border-zinc-100 bg-zinc-50 p-4">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <div>
               <label className="text-xs font-medium text-zinc-500">Name</label>
               <input value={name} onChange={e => setName(e.target.value)}
@@ -610,8 +715,20 @@ function RestaurantRow({ restaurant, password, onDeleted, onUpdated }: {
             </div>
             <div>
               <label className="text-xs font-medium text-zinc-500">Establishment type</label>
-              <input value={estType} onChange={e => setEstType(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-500" />
+              <select value={estType} onChange={e => setEstType(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-500">
+                {ESTABLISHMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="text-xs font-medium text-zinc-500">Price range</label>
+              <select value={priceLevel} onChange={e => setPriceLevel(e.target.value)}
+                className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-500">
+                <option value="₱">₱ · Php1–300 per person</option>
+                <option value="₱₱">₱₱ · Php300–800 per person</option>
+                <option value="₱₱₱">₱₱₱ · Php800–1,000 per person</option>
+                <option value="₱₱₱₱">₱₱₱₱ · Php1,000+ per person</option>
+              </select>
             </div>
           </div>
 
@@ -626,6 +743,10 @@ function RestaurantRow({ restaurant, password, onDeleted, onUpdated }: {
                   label="Select dish photo"
                 />
               )}
+              <MonthYearPicker
+                value={item.photo_date}
+                onChange={(v) => setItems(prev => prev.map(m => m.rank === item.rank ? { ...m, photo_date: v } : m))}
+              />
               <div className="grid grid-cols-3 gap-2">
                 <div className="col-span-2">
                   <label className="text-xs font-medium text-zinc-500">Dish name</label>
@@ -633,9 +754,13 @@ function RestaurantRow({ restaurant, password, onDeleted, onUpdated }: {
                     className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500" />
                 </div>
                 <div>
-                  <label className="text-xs font-medium text-zinc-500">Price (₱)</label>
-                  <input type="number" value={item.price} onChange={e => updateItem(item.rank, 'price', e.target.value)}
+                  <label className="text-xs font-medium text-zinc-500">Price</label>
+                  <input type="text" value={item.price} onChange={e => updateItem(item.rank, 'price', e.target.value)}
                     className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500" />
+                  <label className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500">
+                    <input type="checkbox" checked={item.price_currency_prefix ?? true} onChange={e => updateItemPrefix(item.rank, e.target.checked)} />
+                    ₱ prefix
+                  </label>
                 </div>
               </div>
               <div>
@@ -677,6 +802,7 @@ function RestaurantRow({ restaurant, password, onDeleted, onUpdated }: {
                 label="Select exterior photo (shown as clue 5)"
               />
             )}
+            <MonthYearPicker value={exteriorPhotoDate} onChange={setExteriorPhotoDate} />
           </div>
 
           <div className="flex gap-2">
@@ -700,13 +826,15 @@ function RestaurantsCRUDTab({ password }: { password: string }) {
   const [preview, setPreview] = useState<PlacePreview | null>(null)
   const [cuisine, setCuisine] = useState('')
   const [estType, setEstType] = useState('')
+  const [priceLevel, setPriceLevel] = useState('₱₱')
   const [draftItems, setDraftItems] = useState<MenuItemDraft[]>([
-    { rank: 1, name: '', description: '', price: '', photo_reference: '', photo_url: null, photo_attribution: null },
-    { rank: 2, name: '', description: '', price: '', photo_reference: '', photo_url: null, photo_attribution: null },
+    { rank: 1, name: '', description: '', price: '', price_currency_prefix: true, photo_reference: '', photo_url: null, photo_attribution: null, photo_date: null },
+    { rank: 2, name: '', description: '', price: '', price_currency_prefix: true, photo_reference: '', photo_url: null, photo_attribution: null, photo_date: null },
   ])
   const [exteriorPhotoRef, setExteriorPhotoRef] = useState('')
   const [exteriorPhotoUrl, setExteriorPhotoUrl] = useState<string | null>(null)
   const [exteriorPhotoAttribution, setExteriorPhotoAttribution] = useState<string | null>(null)
+  const [exteriorPhotoDate, setExteriorPhotoDate] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
   // List state
@@ -727,12 +855,16 @@ function RestaurantsCRUDTab({ password }: { password: string }) {
     setDraftItems(prev => prev.map(it => it.rank === rank ? { ...it, ...selection } : it))
   }
 
+  function updateDraftItemPrefix(rank: number, value: boolean) {
+    setDraftItems(prev => prev.map(it => it.rank === rank ? { ...it, price_currency_prefix: value } : it))
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     if (!preview) return
     setSaving(true)
 
-    const menuItems = draftItems.map(it => ({ ...it, price: Number(it.price) }))
+    const menuItems = draftItems
     const res = await fetch('/api/admin/restaurants', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', 'x-admin-secret': password },
@@ -741,10 +873,12 @@ function RestaurantsCRUDTab({ password }: { password: string }) {
         name: preview.name,
         cuisine,
         establishment_type: estType,
+        price_level: priceLevel,
         menu_items: menuItems,
         exterior_photo_ref: exteriorPhotoRef || null,
         exterior_photo_url: exteriorPhotoUrl,
         exterior_photo_attribution: exteriorPhotoAttribution,
+        exterior_photo_date: exteriorPhotoDate,
         puzzle_date: null,
       }),
     })
@@ -758,10 +892,12 @@ function RestaurantsCRUDTab({ password }: { password: string }) {
         name: preview.name,
         cuisine,
         establishment_type: estType,
+        price_level: priceLevel,
         menu_items: menuItems,
         exterior_photo_ref: exteriorPhotoRef || null,
         exterior_photo_url: exteriorPhotoUrl,
         exterior_photo_attribution: exteriorPhotoAttribution,
+        exterior_photo_date: exteriorPhotoDate,
         approved: true,
         created_at: new Date().toISOString(),
       }
@@ -769,13 +905,15 @@ function RestaurantsCRUDTab({ password }: { password: string }) {
       setPreview(null)
       setCuisine('')
       setEstType('')
+      setPriceLevel('₱₱')
       setDraftItems([
-        { rank: 1, name: '', description: '', price: '', photo_reference: '', photo_url: null, photo_attribution: null },
-        { rank: 2, name: '', description: '', price: '', photo_reference: '', photo_url: null, photo_attribution: null },
+        { rank: 1, name: '', description: '', price: '', price_currency_prefix: true, photo_reference: '', photo_url: null, photo_attribution: null, photo_date: null },
+        { rank: 2, name: '', description: '', price: '', price_currency_prefix: true, photo_reference: '', photo_url: null, photo_attribution: null, photo_date: null },
       ])
       setExteriorPhotoRef('')
       setExteriorPhotoUrl(null)
       setExteriorPhotoAttribution(null)
+      setExteriorPhotoDate(null)
     } else {
       const err = await res.json()
       alert(`Error: ${err.error}`)
@@ -795,7 +933,7 @@ function RestaurantsCRUDTab({ password }: { password: string }) {
               <AmbientCluesPreview clues={preview.ambient_clues} />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className="text-xs font-medium text-zinc-500">Cuisine</label>
                 <input
@@ -808,13 +946,27 @@ function RestaurantsCRUDTab({ password }: { password: string }) {
               </div>
               <div>
                 <label className="text-xs font-medium text-zinc-500">Establishment type</label>
-                <input
+                <select
                   required
                   value={estType}
                   onChange={e => setEstType(e.target.value)}
-                  placeholder="e.g. Casual dining"
+                  className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-500">
+                  <option value="" disabled>Select type…</option>
+                  {ESTABLISHMENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-zinc-500">Price range</label>
+                <select
+                  value={priceLevel}
+                  onChange={e => setPriceLevel(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500"
-                />
+                >
+                  <option value="₱">₱ · Php1–300 per person</option>
+                  <option value="₱₱">₱₱ · Php300–800 per person</option>
+                  <option value="₱₱₱">₱₱₱ · Php800–1,000 per person</option>
+                  <option value="₱₱₱₱">₱₱₱₱ · Php1,000+ per person</option>
+                </select>
               </div>
             </div>
 
@@ -827,6 +979,10 @@ function RestaurantsCRUDTab({ password }: { password: string }) {
                   onChange={(s) => updateDraftItemPhoto(item.rank, s)}
                   label="Select dish photo"
                 />
+                <MonthYearPicker
+                  value={item.photo_date}
+                  onChange={(v) => setDraftItems(prev => prev.map(it => it.rank === item.rank ? { ...it, photo_date: v } : it))}
+                />
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-zinc-500">Dish name</label>
@@ -838,14 +994,18 @@ function RestaurantsCRUDTab({ password }: { password: string }) {
                     />
                   </div>
                   <div>
-                    <label className="text-xs font-medium text-zinc-500">Price (₱)</label>
+                    <label className="text-xs font-medium text-zinc-500">Price</label>
                     <input
                       required
-                      type="number"
+                      type="text"
                       value={item.price}
                       onChange={e => updateDraftItem(item.rank, 'price', e.target.value)}
                       className="mt-1 w-full rounded-lg border border-zinc-300 px-3 py-2 text-sm outline-none focus:border-zinc-500"
                     />
+                    <label className="mt-1 flex items-center gap-1.5 text-xs text-zinc-500">
+                      <input type="checkbox" checked={item.price_currency_prefix ?? true} onChange={e => updateDraftItemPrefix(item.rank, e.target.checked)} />
+                      ₱ prefix
+                    </label>
                   </div>
                 </div>
                 <div>
@@ -868,6 +1028,7 @@ function RestaurantsCRUDTab({ password }: { password: string }) {
                 onChange={(s) => { setExteriorPhotoRef(s.photo_reference); setExteriorPhotoUrl(s.photo_url); setExteriorPhotoAttribution(s.photo_attribution) }}
                 label="Select exterior photo (shown as clue 5)"
               />
+              <MonthYearPicker value={exteriorPhotoDate} onChange={setExteriorPhotoDate} />
             </div>
 
             <button
@@ -948,7 +1109,7 @@ export default function AdminPage() {
   }
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
+    <main className="mx-auto w-full max-w-2xl px-4 py-8">
       <div className="mb-6 flex items-center gap-4">
         <h1 className="text-xl font-bold">Admin</h1>
         <div className="flex rounded-lg border border-zinc-200 p-0.5">

@@ -2,10 +2,12 @@ export type MenuItem = {
   rank: number
   name: string
   description: string
-  price: number
+  price: string
+  price_currency_prefix: boolean
   photo_reference: string
   photo_url: string | null
   photo_attribution: string | null
+  photo_date: string | null
 }
 
 export type Restaurant = {
@@ -14,10 +16,12 @@ export type Restaurant = {
   name: string
   cuisine: string
   establishment_type: string
+  price_level: string
   menu_items: MenuItem[]
   exterior_photo_ref: string | null
   exterior_photo_url: string | null
   exterior_photo_attribution: string | null
+  exterior_photo_date: string | null
   approved: boolean
   created_at: string
 }

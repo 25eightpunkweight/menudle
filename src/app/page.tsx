@@ -23,6 +23,7 @@ type PuzzleData = {
   exterior_photo_ref: string | null
   exterior_photo_url: string | null
   exterior_photo_attribution: string | null
+  exterior_photo_date: string | null
 }
 
 type Guess = { name: string; correct: boolean; skipped?: boolean }
@@ -35,20 +36,20 @@ type GameState = {
 
 const STORAGE_KEY = 'menudle_state'
 
-function loadState(puzzleDate: string): GameState | null {
+function loadState(puzzleDate: string, restaurantId: string): GameState | null {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw)
-    if (parsed.puzzle_date !== puzzleDate) return null
+    if (parsed.puzzle_date !== puzzleDate || parsed.restaurant_id !== restaurantId) return null
     return parsed.game as GameState
   } catch {
     return null
   }
 }
 
-function saveState(puzzleDate: string, game: GameState) {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ puzzle_date: puzzleDate, game }))
+function saveState(puzzleDate: string, restaurantId: string, game: GameState) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ puzzle_date: puzzleDate, restaurant_id: restaurantId, game }))
 }
 
 function updateStreak(won: boolean) {
@@ -83,7 +84,7 @@ export default function Home() {
         const data: PuzzleData = await res.json()
         setPuzzle(data)
 
-        const saved = loadState(data.puzzle_date)
+        const saved = loadState(data.puzzle_date, data.restaurant_id)
         if (saved) setGame(saved)
       } catch {
         setError("Failed to load today's puzzle.")
@@ -117,7 +118,7 @@ export default function Home() {
 
       const newGame: GameState = { guesses: newGuesses, won, lost }
       setGame(newGame)
-      saveState(puzzle.puzzle_date, newGame)
+      saveState(puzzle.puzzle_date, puzzle.restaurant_id, newGame)
     },
     [puzzle, game]
   )
@@ -133,7 +134,7 @@ export default function Home() {
     if (lost) updateStreak(false)
     const newGame: GameState = { guesses: newGuesses, won: false, lost }
     setGame(newGame)
-    saveState(puzzle.puzzle_date, newGame)
+    saveState(puzzle.puzzle_date, puzzle.restaurant_id, newGame)
   }, [puzzle, game])
 
   const handleReset = useCallback(() => {
@@ -181,6 +182,7 @@ export default function Home() {
               exteriorPhotoRef={puzzle.exterior_photo_ref}
               exteriorPhotoUrl={puzzle.exterior_photo_url}
               exteriorPhotoAttribution={puzzle.exterior_photo_attribution}
+              exteriorPhotoDate={puzzle.exterior_photo_date}
               mapsApiKey={MAPS_API_KEY}
             />
 

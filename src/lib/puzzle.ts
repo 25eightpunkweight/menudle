@@ -39,6 +39,13 @@ function reviewCountBracket(count: number): string {
   return '5,000+ reviews'
 }
 
+export const PRICE_SYMBOL_LABELS: Record<string, string> = {
+  '₱':    '₱ · Php1–300 per person',
+  '₱₱':   '₱₱ · Php300–800 per person',
+  '₱₱₱':  '₱₱₱ · Php800–1,000 per person',
+  '₱₱₱₱': '₱₱₱₱ · Php1,000+ per person',
+}
+
 // Places API (New) uses string enum for price level
 const PRICE_LABELS: Record<string, string> = {
   PRICE_LEVEL_FREE: 'Free',

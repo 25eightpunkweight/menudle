@@ -1,18 +1,20 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase'
-import { getPHTDateString, fetchPlaceAmbient, fetchPlacePhotos } from '@/lib/puzzle'
+import { getPHTDateString, fetchPlaceAmbient, fetchPlacePhotos, PRICE_SYMBOL_LABELS } from '@/lib/puzzle'
 import type { MenuItem } from '@/lib/database.types'
 
 type QueueRow = {
   restaurant_id: string
   restaurants: {
     place_id: string
+    price_level: string
     cuisine: string
     establishment_type: string
     menu_items: MenuItem[]
     exterior_photo_ref: string | null
     exterior_photo_url: string | null
     exterior_photo_attribution: string | null
+    exterior_photo_date: string | null
   } | null
 }
 
@@ -21,7 +23,7 @@ export async function GET() {
 
   const { data, error } = await getSupabaseAdmin()
     .from('puzzle_queue')
-    .select('restaurant_id, restaurants(place_id, cuisine, establishment_type, menu_items, exterior_photo_ref, exterior_photo_url, exterior_photo_attribution)')
+    .select('restaurant_id, restaurants(place_id, price_level, cuisine, establishment_type, menu_items, exterior_photo_ref, exterior_photo_url, exterior_photo_attribution, exterior_photo_date)')
     .eq('puzzle_date', today)
     .single()
 
@@ -39,6 +41,7 @@ export async function GET() {
     fetchPlaceAmbient(restaurant.place_id),
     restaurant.exterior_photo_ref ? Promise.resolve([] as string[]) : fetchPlacePhotos(restaurant.place_id),
   ])
+  ambient.price_level = PRICE_SYMBOL_LABELS[restaurant.price_level] ?? restaurant.price_level
 
   const exterior_photo_ref = restaurant.exterior_photo_ref ?? fallbackPhotos.at(-1) ?? null
 
@@ -52,5 +55,6 @@ export async function GET() {
     exterior_photo_ref,
     exterior_photo_url: restaurant.exterior_photo_url,
     exterior_photo_attribution: restaurant.exterior_photo_attribution,
+    exterior_photo_date: restaurant.exterior_photo_date,
   })
 }

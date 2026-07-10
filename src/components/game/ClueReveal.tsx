@@ -3,6 +3,11 @@
 import type { MenuItem } from '@/lib/database.types'
 import { placePhotoUrl } from '@/lib/photos'
 
+function formatPhotoDate(d: string): string {
+  const [y, m] = d.split('-').map(Number)
+  return new Date(y, m - 1).toLocaleString('en-US', { month: 'short', year: 'numeric' })
+}
+
 type Props = {
   guessCount: number // number of wrong guesses made so far
   menuItems: MenuItem[]
@@ -11,15 +16,21 @@ type Props = {
   exteriorPhotoRef: string | null
   exteriorPhotoUrl: string | null
   exteriorPhotoAttribution: string | null
+  exteriorPhotoDate: string | null
   mapsApiKey: string
 }
 
-function Photo({ photoRef, url, attribution, alt, mapsApiKey }: {
+function formatDescription(desc: string): string {
+  return desc.startsWith('"') && desc.endsWith('"') ? desc : `"${desc}"`
+}
+
+function Photo({ photoRef, url, attribution, alt, mapsApiKey, asOfDate }: {
   photoRef: string
   url: string | null
   attribution: string | null
   alt: string
   mapsApiKey: string
+  asOfDate?: string | null
 }) {
   const src = url ?? placePhotoUrl(photoRef, mapsApiKey)
   const caption = url ? `Photo: ${attribution || 'external source'}` : 'Photo via Google'
@@ -31,6 +42,9 @@ function Photo({ photoRef, url, attribution, alt, mapsApiKey }: {
         className="mx-auto max-h-64 w-full rounded-xl object-cover"
       />
       <p className="mt-1 text-center text-[10px] text-zinc-400">{caption}</p>
+      {asOfDate && (
+        <p className="mt-0.5 text-center text-[10px] text-zinc-400">(as of {formatPhotoDate(asOfDate)})</p>
+      )}
     </div>
   )
 }
@@ -49,8 +63,11 @@ function MenuItem({ item, showPhoto, mapsApiKey }: { item: MenuItem; showPhoto: 
       )}
       <div className="text-center">
         <p className="font-semibold">{item.name}</p>
-        {item.description && <p className="text-sm text-zinc-500">{item.description}</p>}
-        <p className="text-sm font-medium">₱{item.price.toLocaleString()}</p>
+        {item.description && <p className="text-sm italic text-zinc-500">{formatDescription(item.description)}</p>}
+        <p className="text-sm font-medium">{(item.price_currency_prefix ?? true) ? '₱' : ''}{item.price}</p>
+        {item.photo_date && (
+          <p className="text-xs text-zinc-400">(as of {formatPhotoDate(item.photo_date)})</p>
+        )}
       </div>
     </div>
   )
@@ -64,6 +81,7 @@ export default function ClueReveal({
   exteriorPhotoRef,
   exteriorPhotoUrl,
   exteriorPhotoAttribution,
+  exteriorPhotoDate,
   mapsApiKey,
 }: Props) {
   const item1 = menuItems[0]
@@ -102,8 +120,11 @@ export default function ClueReveal({
           {guessCount >= 3 && (
             <div className="mt-2 text-center">
               <p className="font-semibold">{item1.name}</p>
-              {item1.description && <p className="text-sm text-zinc-500">{item1.description}</p>}
-              <p className="text-sm font-medium">₱{item1.price.toLocaleString()}</p>
+              {item1.description && <p className="text-sm italic text-zinc-500">{formatDescription(item1.description)}</p>}
+              <p className="text-sm font-medium">{(item1.price_currency_prefix ?? true) ? '₱' : ''}{item1.price}</p>
+              {item1.photo_date && (
+                <p className="text-xs text-zinc-400">(as of {formatPhotoDate(item1.photo_date)})</p>
+              )}
             </div>
           )}
         </div>
@@ -127,6 +148,7 @@ export default function ClueReveal({
             attribution={exteriorPhotoAttribution}
             alt="Restaurant exterior"
             mapsApiKey={mapsApiKey}
+            asOfDate={exteriorPhotoDate}
           />
         </div>
       )}
