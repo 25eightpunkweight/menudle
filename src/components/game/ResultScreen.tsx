@@ -97,16 +97,18 @@ function Countdown() {
 }
 
 export default function ResultScreen({ won, guesses, restaurantName, onReset }: Props) {
+  const [copied, setCopied] = useState(false)
   const emoji = buildEmojiGrid(guesses)
   const shareText = `Menudle ${new Date().toLocaleDateString('en-PH', { timeZone: 'Asia/Manila' })}\n${emoji}`
 
   async function handleShare() {
     try {
       await navigator.clipboard.writeText(shareText)
-      alert('Copied to clipboard!')
     } catch {
-      alert(shareText)
+      // clipboard unavailable — silently ignore
     }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
   }
 
   return (
@@ -123,12 +125,19 @@ export default function ResultScreen({ won, guesses, restaurantName, onReset }: 
 
       <p className="text-2xl tracking-widest">{emoji}</p>
 
-      <button
-        onClick={handleShare}
-        className="w-full rounded-xl bg-zinc-900 py-3 text-sm font-medium text-white hover:bg-zinc-700 active:bg-zinc-800"
-      >
-        Share result
-      </button>
+      <div className="space-y-2">
+        <button
+          onClick={handleShare}
+          className="w-full rounded-xl bg-zinc-900 py-3 text-sm font-medium text-white hover:bg-zinc-700 active:bg-zinc-800"
+        >
+          Share result
+        </button>
+        <p
+          className={`text-xs text-zinc-500 transition-opacity duration-300 ${copied ? 'opacity-100' : 'opacity-0'}`}
+        >
+          Copied to clipboard!
+        </p>
+      </div>
 
       {onReset && (
         <button
